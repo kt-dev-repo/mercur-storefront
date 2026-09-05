@@ -41,7 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# lockfiles from other package managers — this repo uses pnpm
-package-lock.json
+# lockfiles from other package managers — this repo uses npm, like the marketplace repo
+pnpm-lock.yaml
 bun.lockb
 yarn.lock

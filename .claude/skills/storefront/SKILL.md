@@ -5,7 +5,7 @@ description: Work on the Mercur storefront — Next.js App Router pages, compone
 
 # Storefront
 
-Next.js 15 App Router, React 19, Tailwind, pnpm. Sourced from Mercur's
+Next.js 15 App Router, React 19, Tailwind, npm. Sourced from Mercur's
 `apps/storefront` at `@mercurjs/storefront@2.3.4-canary.3`.
 
 ## The two things that fail silently
@@ -29,14 +29,16 @@ Changing one side means changing the other in the same breath.
 
 ## Rules
 
-1. **pnpm, never npm.** The marketplace repo's npm requirement is a Medusa hoisting
-   constraint that does not apply to this app.
+1. **npm, and every install needs `--force`.** Every published `@medusajs/ui` declares
+   `peer react@^18.3.1` while this app runs React 19, so a strict install fails with
+   `ERESOLVE`. Never `--legacy-peer-deps`: it skips peer installation rather than
+   tolerating the range.
 2. **Never put a secret in a `NEXT_PUBLIC_*`.** It ships to the browser. Stripe's
    publishable key belongs here; the secret key belongs only in the backend.
 3. **React 19 stays isolated here.** This repository exists because the panels are pinned
    to React 18.3.1.
-4. **`pnpm build` passing does not mean the types are sound.** `next.config.ts` sets
-   `typescript.ignoreBuildErrors: true`, inherited from upstream. Run `pnpm check-types`.
+4. **`npm run build` passing does not mean the types are sound.** `next.config.ts` sets
+   `typescript.ignoreBuildErrors: true`, inherited from upstream. Run `npm run check-types`.
 
 ## Known issues inherited from upstream
 
@@ -44,7 +46,7 @@ Changing one side means changing the other in the same breath.
   proxy for arbitrary remote URLs. Restrict it to the backend origin and CDN before real
   traffic.
 - `typescript.ignoreBuildErrors: true`, so the build does not fail on type errors.
-- **`pnpm check-types` reports 82 errors**, all in upstream's `src/` — the direct
+- **`npm run check-types` reports 82 errors**, all in upstream's `src/` — the direct
   consequence of the above. That number is a **baseline that must not grow**.
 - `next build` emits ~210 ESLint warnings from inherited code. `eslint.config.mjs`
   downgrades the tripped rules to warnings rather than rewriting upstream source, which
@@ -61,7 +63,8 @@ Fixed during extraction, and worth knowing if you re-extract from a newer upstre
 1. **No ESLint config** — upstream inherits it from the monorepo root. Standalone, every
    `.ts` file failed with `Parsing error: The keyword 'export' is reserved`.
 2. **An undeclared dependency** — `embla-carousel` is imported directly but was not in
-   `package.json`; npm/bun hoisting covered for it, pnpm does not.
+   `package.json`. Found while briefly on pnpm, whose strict resolution refuses it; npm
+   hides it again, so it stays declared deliberately.
 3. **`outputFileTracingRoot`** — Next traced upwards and emitted `server.js` at
    `.next/standalone/<abs/path>/server.js`, so the Docker image would have shipped with
    no server.

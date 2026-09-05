@@ -4,16 +4,26 @@
 # server bundle with only the node_modules it actually uses. That is what makes the
 # runtime stage small and is why the whole node_modules tree is not copied forward.
 
-FROM node:20-alpine AS base
-RUN corepack enable
+FROM node:22-alpine AS base
 WORKDIR /app
 
 # --- dependencies ----------------------------------------------------------
 FROM base AS deps
-COPY package.json pnpm-lock.yaml ./
-# --frozen-lockfile so a drifted lockfile fails the build instead of silently
-# resolving something else than what was tested.
-RUN pnpm install --frozen-lockfile
+COPY package.json package-lock.json ./
+# `npm ci` installs exactly the committed lockfile, so a drifted lockfile fails the
+# build instead of silently resolving something else than what was tested.
+#
+# --force, and specifically NOT --legacy-peer-deps. Every published @medusajs/ui
+# declares `peer react@^18.3.1` and this app runs React 19, so a strict install fails
+# with ERESOLVE. The two flags are not interchangeable:
+#   --force              installs peers but tolerates a conflicting range — the same
+#                        resolution pnpm and bun produce, which is what upstream ships
+#                        and what this app is known to build against.
+#   --legacy-peer-deps   skips peer installation entirely, which silently drops
+#                        packages that are only reachable as peers.
+# The marketplace repo makes the same choice for the same reason; see its
+# deploy/Dockerfile.
+RUN npm ci --force --no-audit --no-fund
 
 # --- build -----------------------------------------------------------------
 FROM base AS build
@@ -42,10 +52,10 @@ ENV NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=$NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY \
     MEDUSA_BACKEND_URL=$MEDUSA_BACKEND_URL \
     NEXT_TELEMETRY_DISABLED=1
 
-RUN pnpm build
+RUN npm run build
 
 # --- runtime ---------------------------------------------------------------
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000
 

@@ -1,16 +1,17 @@
 # Mercur Storefront
 
 The shopper-facing storefront for the marketplace in `kt-dev-repo/mercur`. Next.js 15 App
-Router, React 19, Tailwind, pnpm. Sourced from Mercur's `apps/storefront`.
+Router, React 19, Tailwind, npm. Sourced from Mercur's `apps/storefront`.
 
 **Read `README.md` first** — the contract with the backend and the build-time/runtime
 distinction are the two things that cause silent failures here.
 
 ## Hard rules
 
-1. **pnpm, not npm.** `packageManager` declares it and the Dockerfile uses
-   `--frozen-lockfile`. The marketplace repo is on npm for a Medusa-specific reason that
-   does not apply here; do not "unify" them.
+1. **npm, with `--force` on every install.** Every published `@medusajs/ui` declares
+   `peer react@^18.3.1` and this app runs React 19, so a strict install fails with
+   `ERESOLVE`. Never `--legacy-peer-deps` — it skips peer installation entirely rather
+   than tolerating the range. Same choice, same reasoning, as the marketplace repo.
 2. **React 19 stays here.** This app exists as a separate repository *because* it needs
    React 19 and the marketplace panels need 18.3.1. Never merge the two installs.
 3. **Anything `NEXT_PUBLIC_*` ships to the browser and is baked in at build time.** Never
@@ -37,16 +38,16 @@ self-contained.
 ## Verifying a change
 
 ```bash
-pnpm install
-pnpm check-types      # tsc --noEmit; the Next build does NOT fail on type errors
-pnpm lint
-pnpm build            # output: "standalone" — this is what the Dockerfile ships
+npm install --force
+npm run check-types      # tsc --noEmit; the Next build does NOT fail on type errors
+npm run lint
+npm run build            # output: "standalone" — this is what the Dockerfile ships
 ```
 
 `next.config.ts` sets `typescript.ignoreBuildErrors: true` (inherited from upstream), so
-`pnpm build` passing does **not** mean the types are sound.
+`npm run build` passing does **not** mean the types are sound.
 
-`pnpm check-types` currently reports **82 errors, all in upstream's `src/`**. Treat that
+`npm run check-types` currently reports **82 errors, all in upstream's `src/`**. Treat that
 number as a baseline that must not grow — new code should typecheck cleanly. Likewise
 `next build` emits ~210 ESLint warnings from inherited code; `eslint.config.mjs`
 downgrades those rules rather than rewriting upstream source. Do not add new violations.

@@ -2,7 +2,7 @@
 
 The shopper-facing storefront for the marketplace in
 [`kt-dev-repo/mercur`](https://github.com/kt-dev-repo/mercur). Next.js 15, React 19,
-pnpm, deployed as its own Dokploy service.
+npm, deployed as its own Dokploy service.
 
 Sourced from Mercur's `apps/storefront` (`@mercurjs/storefront@2.3.4-canary.3`).
 
@@ -14,17 +14,30 @@ already broken that install once — the `resend` SDK was dropped for exactly th
 peer-dependency conflict.
 
 Keeping the storefront here removes the collision by construction rather than by
-configuration, and leaves the marketplace `package.json` untouched. It also means this
-repo can use **pnpm** freely: the Medusa `node_modules` hoisting constraint that forces
-the marketplace repo onto npm does not apply to a plain Next.js app.
+configuration, and leaves the marketplace `package.json` untouched.
 
 ## Quick start
 
 ```bash
 cp .env.example .env.local   # then fill it in — see the contract below
-pnpm install
-pnpm dev                     # http://localhost:3000
+npm install --force
+npm run dev                  # http://localhost:3000
 ```
+
+### Why npm, and why `--force`
+
+npm, matching the marketplace repo — one package manager across both.
+
+Every install needs `--force`. Every published `@medusajs/ui`, including the latest,
+declares `peer react@^18.3.1`, and this app runs React 19, so a strict install fails with
+`ERESOLVE`. There is no React 19-compatible release; upstream ships this combination and
+pnpm and bun simply warn and proceed.
+
+`--force`, and specifically **not** `--legacy-peer-deps`: the first installs peers but
+tolerates a conflicting range, which reproduces what upstream actually builds against; the
+second skips peer installation entirely and silently drops packages only reachable as
+peers. The marketplace repo makes the same choice for the same reason.
+
 
 The backend must be running and seeded. `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` is not
 optional: the store API refuses every request without it.
@@ -72,10 +85,10 @@ and `TRAEFIK_ROUTER` from the backend stack.
 ## Verifying
 
 ```bash
-pnpm install
-pnpm build          # must pass — this is what the Dockerfile ships
-pnpm check-types    # currently reports 82 inherited errors; see below
-pnpm lint
+npm install --force
+npm run build        # must pass — this is what the Dockerfile ships
+npm run check-types  # currently reports 82 inherited errors; see below
+npm run lint
 ```
 
 ## Known issues inherited from upstream
@@ -87,7 +100,7 @@ upgrade. All four should be addressed before real traffic:
    will fetch and re-serve *any* remote URL, which is an open image proxy. Restrict it to
    your backend origin and CDN.
 2. **`typescript: { ignoreBuildErrors: true }`** — type errors do not fail the build.
-3. **`pnpm check-types` reports 82 errors**, all from upstream's `src/`. That is the
+3. **`npm run check-types` reports 82 errors**, all from upstream's `src/`. That is the
    direct consequence of (2). Treat 82 as a baseline: it must not grow. New code should
    typecheck cleanly.
 4. **`next build` runs ESLint, and upstream's source does not pass `next/typescript`.**
@@ -105,9 +118,9 @@ deployment:
   `Parsing error: The keyword 'export' is reserved`. `eslint.config.mjs` supplies
   `next/core-web-vitals` and `next/typescript`.
 - **An undeclared dependency.** `embla-carousel` is imported directly but was never in
-  `package.json`; npm/bun hoisting resolved it from `embla-carousel-react`. pnpm's strict
-  resolution does not, and `ignoreBuildErrors` meant the build never complained. Now
-  declared.
+  `package.json`. It surfaced while this repo was briefly on pnpm, whose strict resolution
+  refuses it; npm's hoisting hides it again, and `ignoreBuildErrors` meant the build never
+  complained either way. Now declared, which is correct regardless of package manager.
 - **`outputFileTracingRoot`.** Next traced the workspace root upwards and emitted the
   standalone server at `.next/standalone/Documents/github-clone/.../server.js`. The
   Dockerfile copies `.next/standalone` to `/app` and runs `node server.js`, so the image

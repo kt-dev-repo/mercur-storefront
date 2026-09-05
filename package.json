@@ -2,7 +2,7 @@
   "name": "mercur-storefront",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "npm@11.17.0",
   "engines": {
     "node": ">=20"
   },
@@ -19,7 +19,7 @@
     "@medusajs/icons": "2.18.0",
     "@medusajs/medusa": "2.18.0",
     "@medusajs/types": "2.18.0",
-    "@medusajs/ui": "^4.0.33",
+    "@medusajs/ui": "4.1.19",
     "@mercurjs/client": "2.3.4-canary.3",
     "@mercurjs/types": "2.3.4-canary.3",
     "@stripe/react-stripe-js": "^3.7.0",
