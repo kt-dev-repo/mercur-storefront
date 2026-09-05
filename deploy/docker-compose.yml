@@ -1,0 +1,49 @@
+# Storefront service for Dokploy.
+#
+# This is a SEPARATE deployment from the marketplace backend. The two are joined by
+# environment variables only — see README.md, "The contract with the backend". They
+# share Traefik's `dokploy-network` so they can be reached on different hostnames.
+#
+# The backend does NOT need to be in this stack. Point MEDUSA_BACKEND_URL at its
+# public origin, or join its network and use its service name.
+
+services:
+  storefront:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      # Build arguments, not runtime environment: every NEXT_PUBLIC_* is compiled
+      # into the bundle. Changing one needs a REBUILD, not a restart.
+      args:
+        MEDUSA_BACKEND_URL: ${MEDUSA_BACKEND_URL:?set MEDUSA_BACKEND_URL to the marketplace API origin, e.g. https://api.example.com}
+        NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: ${NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY:?set the publishable key from the backend admin panel}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:?set NEXT_PUBLIC_BASE_URL to this storefront's public origin}
+        NEXT_PUBLIC_VENDOR_URL: ${NEXT_PUBLIC_VENDOR_URL:-}
+        NEXT_PUBLIC_DEFAULT_REGION: ${NEXT_PUBLIC_DEFAULT_REGION:-de}
+        NEXT_PUBLIC_STRIPE_KEY: ${NEXT_PUBLIC_STRIPE_KEY:-}
+        NEXT_PUBLIC_SITE_NAME: ${NEXT_PUBLIC_SITE_NAME:-Marketplace}
+        NEXT_PUBLIC_SITE_DESCRIPTION: ${NEXT_PUBLIC_SITE_DESCRIPTION:-A multi-vendor marketplace}
+    restart: unless-stopped
+    environment:
+      # Read at runtime, so these can change without a rebuild.
+      MEDUSA_BACKEND_URL: ${MEDUSA_BACKEND_URL}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:?set REVALIDATE_SECRET to the same value as STOREFRONT_REVALIDATE_SECRET in the backend}
+    networks:
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.services.${TRAEFIK_ROUTER:-storefront}.loadbalancer.server.port=3000"
+      - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-web.rule=Host(`${DOMAIN:?set DOMAIN to the storefront hostname, e.g. shop.example.com}`)"
+      - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-web.entrypoints=web"
+      - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-web.service=${TRAEFIK_ROUTER:-storefront}"
+      # Uncomment once a certificate resolver is configured, exactly as the
+      # backend stack does.
+      # - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.rule=Host(`${DOMAIN}`)"
+      # - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.entrypoints=websecure"
+      # - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      # - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.service=${TRAEFIK_ROUTER:-storefront}"
+
+networks:
+  dokploy-network:
+    external: true
