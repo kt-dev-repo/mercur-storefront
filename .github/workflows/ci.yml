@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  # Runs first and takes seconds: it needs no install, no image and no container.
+  # This is the job that exists because of an actual outage — the Traefik `websecure`
+  # labels shipped commented out, this service published an HTTP router only, and every
+  # https:// request died at the router with a Bad Gateway while the container was
+  # healthy. Nothing could have caught it: this repository had no CI, and the backend's
+  # smoke suite covers the backend stack only.
+  deploy-config:
+    name: Deploy config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: ./deploy/verify-compose.sh
+
+  lint-and-build:
+    name: Lint and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # --force, not --legacy-peer-deps. Every published @medusajs/ui declares
+      # `peer react@^18.3.1` while this storefront runs React 19, so a strict install
+      # fails with ERESOLVE. --legacy-peer-deps would skip peer installation entirely
+      # rather than tolerating the range, which is a different and worse thing.
+      - run: npm ci --force --no-audit --no-fund
+
+      - run: npm run lint
+
+      # Every NEXT_PUBLIC_* is compiled in at build time, and docker-compose.yml guards
+      # the required ones with `${...:?}`. These are placeholders: the build must not
+      # reach the backend, and nothing here is deployed.
+      - name: Build
+        env:
+          MEDUSA_BACKEND_URL: http://localhost:9000
+          NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: pk_ci_placeholder
+          NEXT_PUBLIC_BASE_URL: http://localhost:8000
+          NEXT_PUBLIC_VENDOR_URL: http://localhost:9000/seller
+          NEXT_PUBLIC_DEFAULT_REGION: de
+        run: npm run build
+
+  # A ratchet, not a gate. `tsc --noEmit` currently reports 82 errors on main, almost
+  # all of them one root cause — the Medusa SDK's responses resolving as `{}`, so every
+  # `.products` / `.carts` / `.regions` access is an error. Fixing that is real work and
+  # not something to bundle into adding CI.
+  #
+  # `next.config.ts` sets `typescript.ignoreBuildErrors: true`, so the build never
+  # reports any of this. That is exactly how 82 accumulated without anyone noticing.
+  # This job makes the number visible and stops it growing: the debt cannot get worse
+  # by accident, and every error removed can be banked by lowering BASELINE.
+  typecheck-ratchet:
+    name: Typecheck (ratchet)
+    runs-on: ubuntu-latest
+    env:
+      # Lower this whenever errors are fixed. Never raise it.
+      BASELINE: 82
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci --force --no-audit --no-fund
+
+      - name: Count type errors and compare to the baseline
+        run: |
+          set +e
+          COUNT=$(npx tsc --noEmit 2>&1 | grep -cE "error TS")
+          set -e
+          echo "type errors: $COUNT (baseline $BASELINE)"
+
+          if [ "$COUNT" -gt "$BASELINE" ]; then
+            echo "::error::Type errors rose from $BASELINE to $COUNT. Fix the new ones, or explain why the baseline must move."
+            npx tsc --noEmit 2>&1 | grep -E "error TS" | head -40
+            exit 1
+          fi
+
+          if [ "$COUNT" -lt "$BASELINE" ]; then
+            echo "::notice::Type errors fell from $BASELINE to $COUNT. Lower BASELINE in this workflow to bank it."
+          fi
