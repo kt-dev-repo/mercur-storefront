@@ -4,7 +4,7 @@ import { HttpTypes } from '@medusajs/types';
 
 import medusaError from '@/lib/helpers/medusa-error';
 
-import { sdk } from '../client';
+import { apiResponse, sdk } from '../client';
 import { getCacheOptions } from './cookies';
 
 export const listRegions = async () => {
@@ -13,8 +13,9 @@ export const listRegions = async () => {
     revalidate: 3600,
   };
 
-  return sdk.store.regions
-    .query({ fetchOptions: { next, cache: 'force-cache' } })
+  return apiResponse<HttpTypes.StoreRegionListResponse>(
+    sdk.store.regions.query({ fetchOptions: { next, cache: 'force-cache' } })
+  )
     .then(({ regions }) => regions)
     .catch(medusaError);
 };
@@ -25,8 +26,12 @@ export const retrieveRegion = async (id: string) => {
     revalidate: 3600,
   };
 
-  return sdk.store.regions.$id
-    .query({ $id: id, fetchOptions: { next, cache: 'force-cache' } })
+  return apiResponse<HttpTypes.StoreRegionResponse>(
+    sdk.store.regions.$id.query({
+      $id: id,
+      fetchOptions: { next, cache: 'force-cache' },
+    })
+  )
     .then(({ region }) => region)
     .catch(medusaError);
 };
