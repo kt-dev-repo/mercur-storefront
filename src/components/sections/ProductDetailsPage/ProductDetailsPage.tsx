@@ -4,6 +4,7 @@ import { listOffers } from "@/lib/data/offers"
 import { StoreOffer } from "@/lib/helpers/buybox"
 import { HomeProductSection } from "../HomeProductSection/HomeProductSection"
 import NotFound from "@/app/not-found"
+import { StoreProductWithSeller } from "@/types/product"
 
 export const ProductDetailsPage = async ({
   handle,
@@ -15,7 +16,7 @@ export const ProductDetailsPage = async ({
   const prod = await listProducts({
     countryCode: locale,
     queryParams: { handle: [handle], limit: 1 },
-  }).then(({ response }) => response.products[0])
+  }).then(({ response }) => response.products[0] as StoreProductWithSeller | undefined)
 
   if (!prod) return null
 

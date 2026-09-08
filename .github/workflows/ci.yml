@@ -57,21 +57,13 @@ jobs:
           NEXT_PUBLIC_DEFAULT_REGION: de
         run: npm run build
 
-  # A ratchet, not a gate. `tsc --noEmit` currently reports 82 errors on main, almost
-  # all of them one root cause — the Medusa SDK's responses resolving as `{}`, so every
-  # `.products` / `.carts` / `.regions` access is an error. Fixing that is real work and
-  # not something to bundle into adding CI.
-  #
-  # `next.config.ts` sets `typescript.ignoreBuildErrors: true`, so the build never
-  # reports any of this. That is exactly how 82 accumulated without anyone noticing.
-  # This job makes the number visible and stops it growing: the debt cannot get worse
-  # by accident, and every error removed can be banked by lowering BASELINE.
-  typecheck-ratchet:
-    name: Typecheck (ratchet)
+  # Was a ratchet holding the count at 82, then 71, while the debt was paid down. The
+  # count is now zero, so this is a plain gate — and `next.config.ts` no longer sets
+  # `typescript.ignoreBuildErrors`, meaning the build enforces it too. Both are kept: this
+  # job fails in seconds and names the file, where a build failure is slower and noisier.
+  typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
-    env:
-      # Lower this whenever errors are fixed. Never raise it.
-      BASELINE: 82
     steps:
       - uses: actions/checkout@v5
 
@@ -82,19 +74,4 @@ jobs:
 
       - run: npm ci --force --no-audit --no-fund
 
-      - name: Count type errors and compare to the baseline
-        run: |
-          set +e
-          COUNT=$(npx tsc --noEmit 2>&1 | grep -cE "error TS")
-          set -e
-          echo "type errors: $COUNT (baseline $BASELINE)"
-
-          if [ "$COUNT" -gt "$BASELINE" ]; then
-            echo "::error::Type errors rose from $BASELINE to $COUNT. Fix the new ones, or explain why the baseline must move."
-            npx tsc --noEmit 2>&1 | grep -E "error TS" | head -40
-            exit 1
-          fi
-
-          if [ "$COUNT" -lt "$BASELINE" ]; then
-            echo "::notice::Type errors fell from $BASELINE to $COUNT. Lower BASELINE in this workflow to bank it."
-          fi
+      - run: npx tsc --noEmit

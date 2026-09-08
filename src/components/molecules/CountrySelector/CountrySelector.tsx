@@ -47,7 +47,11 @@ const CountrySelect = ({ regions }: CountrySelectProps) => {
         }))
       })
       .flat()
-      .sort((a, b) => (a?.label ?? "").localeCompare(b?.label ?? ""))
+      // Medusa types iso_2 and display_name as optional. A country missing either
+      // cannot be displayed or matched against countryCode, so it is dropped here —
+      // which is also what lets these be CountryOption, whose fields are required.
+      .filter((o): o is CountryOption => Boolean(o?.country) && Boolean(o?.label))
+      .sort((a, b) => a.label.localeCompare(b.label))
   }, [regions])
 
   useEffect(() => {

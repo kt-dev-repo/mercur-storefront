@@ -1,3 +1,4 @@
+import { HttpTypes } from "@medusajs/types"
 import { SellerDTO } from "@mercurjs/types"
 
 export interface AdditionalAttributeProps {
@@ -90,4 +91,21 @@ export interface SingleProduct {
   reviews: SingleProductReview[]
   tags: string[]
   postedDate: string
+}
+
+/**
+ * A store product as Mercur returns it.
+ *
+ * `seller` is a Mercur addition — Medusa's own StoreProduct has no such relation — and is
+ * present only when the query asks for it, hence optional.
+ */
+export type StoreProductWithSeller = HttpTypes.StoreProduct & {
+  seller?: {
+    id?: string
+    name?: string
+    handle?: string
+    store_status?: string
+    // Populated when the query expands it — drives the "Similar items" row.
+    products?: Product[]
+  }
 }

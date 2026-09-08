@@ -4,7 +4,7 @@ import { HttpTypes } from '@medusajs/types';
 import { revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { sdk } from '../client';
+import { apiResponse, sdk } from '../client';
 import {
   getAuthHeaders,
   getCacheOptions,
@@ -41,8 +41,9 @@ export const updateCustomer = async (body: HttpTypes.StoreUpdateCustomer) => {
     ...(await getAuthHeaders())
   };
 
-  const updateRes = await sdk.store.customers.me
-    .mutate({ ...body, fetchOptions: { headers } })
+  const updateRes = await apiResponse<HttpTypes.StoreCustomerResponse>(
+    sdk.store.customers.me.mutate({ ...body, fetchOptions: { headers } })
+  )
     .then(({ customer }) => customer)
     .catch(err => {
       throw new Error(err.message);

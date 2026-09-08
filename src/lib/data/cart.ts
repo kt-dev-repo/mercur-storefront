@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import medusaError from '@/lib/helpers/medusa-error';
 import { parseVariantIdsFromError } from '@/lib/helpers/parse-variant-error';
 
-import { sdk } from '../client';
+import { apiResponse, sdk } from '../client';
 import {
   getAuthHeaders,
   getCacheOptions,
@@ -29,8 +29,8 @@ export async function retrieveCart(cartId?: string) {
     ...(await getAuthHeaders())
   };
 
-  return await sdk.store.carts.$id
-    .query({
+  return await apiResponse<HttpTypes.StoreCartResponse>(
+    sdk.store.carts.$id.query({
       $id: id,
       fields:
         '*items,*region, *items.product, *items.variant, *items.variant.options, items.variant.options.option.title,' +
@@ -38,6 +38,7 @@ export async function retrieveCart(cartId?: string) {
         '',
       fetchOptions: { headers, cache: 'no-cache' }
     })
+  )
     .then(({ cart }) => cart)
     .catch(() => null);
 }
@@ -56,10 +57,11 @@ export async function getOrSetCart(countryCode: string) {
   };
 
   if (!cart) {
-    const cartResp = await sdk.store.carts.mutate({
+    const cartResp = await apiResponse<HttpTypes.StoreCartResponse>(sdk.store.carts.mutate({
       region_id: region.id,
       fetchOptions: { headers }
-    });
+    })
+    );
     cart = cartResp.cart;
 
     await setCartId(cart.id);
@@ -92,8 +94,9 @@ export async function updateCart(data: HttpTypes.StoreUpdateCart) {
     ...(await getAuthHeaders())
   };
 
-  return await sdk.store.carts.$id
-    .mutate({ $id: cartId, ...data, fetchOptions: { headers } })
+  return await apiResponse<HttpTypes.StoreCartResponse>(
+    sdk.store.carts.$id.mutate({ $id: cartId, ...data, fetchOptions: { headers } })
+  )
     .then(async ({ cart }) => {
       const cartCacheTag = await getCacheTag('carts');
       await revalidateTag(cartCacheTag);
@@ -254,11 +257,20 @@ export async function initiatePaymentSession(
     let paymentCollection = cart.payment_collection;
 
     if (!paymentCollection) {
-      const { payment_collection } = await sdk.store.paymentCollections.mutate({
+      const { payment_collection } = await apiResponse<HttpTypes.StorePaymentCollectionResponse>(sdk.store.paymentCollections.mutate({
         cart_id: cart.id,
         fetchOptions: { headers }
-      });
+      })
+      );
       paymentCollection = payment_collection;
+    }
+
+    if (!paymentCollection) {
+      // Nothing downstream works without one, and carrying on fails later with a far
+      // less obvious message than this.
+      throw new Error(
+        "Could not create a payment collection for this cart — checkout cannot continue."
+      )
     }
 
     const resp = await sdk.store.paymentCollections.$id.paymentSessions.mutate({
@@ -289,11 +301,12 @@ export async function applyPromotions(codes: string[]) {
   };
 
   try {
-    const { cart } = await sdk.store.carts.$id.mutate({
+    const { cart } = await apiResponse<HttpTypes.StoreCartResponse>(sdk.store.carts.$id.mutate({
       $id: cartId,
       promo_codes: codes,
       fetchOptions: { headers }
     })
+    )
     const cartCacheTag = await getCacheTag("carts")
     revalidateTag(cartCacheTag)
     // @ts-ignore
@@ -481,11 +494,12 @@ export async function updateRegionWithValidation(
       }
 
       try {
-        const { cart } = await sdk.store.carts.$id.query({
+        const { cart } = await apiResponse<HttpTypes.StoreCartResponse>(sdk.store.carts.$id.query({
           $id: cartId,
           fields: '*items',
           fetchOptions: { headers, cache: 'no-cache' }
-        });
+        })
+        );
 
         for (const variantId of problematicVariantIds) {
           const item = cart?.items?.find(item => item.variant_id === variantId);

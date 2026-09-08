@@ -76,15 +76,10 @@ const nextConfig: NextConfig = {
     ]
   },
   typescript: {
-    // The build does not fail on type errors, and there are currently 82 of them —
-    // almost all one root cause, the Medusa SDK's responses resolving as `{}` so every
-    // `.products` / `.carts` / `.regions` access is an error. This flag is why none of
-    // that is visible from `npm run build`, and why the count grew unnoticed.
-    //
-    // Do not remove it without fixing those first: the build would stop dead. The CI
-    // `typecheck-ratchet` job is the interim guard — it fails if the count RISES, so the
-    // debt cannot get worse by accident while it is being paid down.
-    ignoreBuildErrors: true
+    // Was `ignoreBuildErrors: true`, which is how 82 type errors accumulated without
+    // ever failing a build. The count is now zero, so the build enforces it again and
+    // the debt cannot silently return.
+    ignoreBuildErrors: false
   }
 };
 
