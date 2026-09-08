@@ -21,7 +21,7 @@ configuration, and leaves the marketplace `package.json` untouched.
 ```bash
 cp .env.example .env.local   # then fill it in — see the contract below
 npm install --force
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:8000
 ```
 
 ### Why npm, and why `--force`
