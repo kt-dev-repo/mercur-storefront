@@ -57,7 +57,7 @@ jobs:
           NEXT_PUBLIC_DEFAULT_REGION: de
         run: npm run build
 
-  # A ratchet, not a gate. `tsc --noEmit` currently reports 82 errors on main, almost
+  # A ratchet, not a gate. `tsc --noEmit` reports 71 errors on main, almost
   # all of them one root cause — the Medusa SDK's responses resolving as `{}`, so every
   # `.products` / `.carts` / `.regions` access is an error. Fixing that is real work and
   # not something to bundle into adding CI.
@@ -66,12 +66,19 @@ jobs:
   # reports any of this. That is exactly how 82 accumulated without anyone noticing.
   # This job makes the number visible and stops it growing: the debt cannot get worse
   # by accident, and every error removed can be banked by lowering BASELINE.
+  #
+  # 82 -> 71: the 11 errors unrelated to the SDK are fixed. The remaining 71 are all one
+  # cause — src/lib/client.ts declares `type Routes = Record<string, unknown>`, a
+  # placeholder, so InferClient resolves every response to `{}`. 54 are direct
+  # ("Property 'products' does not exist on type '{}'") and 17 are callbacks over those
+  # untyped results. Fixing it needs the backend's generated route types, which pull in
+  # @mercurjs/core — not currently a dependency here.
   typecheck-ratchet:
     name: Typecheck (ratchet)
     runs-on: ubuntu-latest
     env:
       # Lower this whenever errors are fixed. Never raise it.
-      BASELINE: 82
+      BASELINE: 71
     steps:
       - uses: actions/checkout@v5
 

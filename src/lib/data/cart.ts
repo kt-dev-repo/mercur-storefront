@@ -261,6 +261,14 @@ export async function initiatePaymentSession(
       paymentCollection = payment_collection;
     }
 
+    if (!paymentCollection) {
+      // Nothing downstream works without one, and carrying on fails later with a far
+      // less obvious message than this.
+      throw new Error(
+        "Could not create a payment collection for this cart — checkout cannot continue."
+      )
+    }
+
     const resp = await sdk.store.paymentCollections.$id.paymentSessions.mutate({
       $id: paymentCollection.id,
       provider_id: data.provider_id,
