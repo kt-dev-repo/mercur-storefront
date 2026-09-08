@@ -83,5 +83,19 @@ else
   bad "the service joins dokploy-network" "Traefik cannot discover a service outside its network"
 fi
 
+printf '\n\033[1mImage optimiser\033[0m\n'
+
+# `remotePatterns: [{ hostname: '**' }]` lets the Next image optimiser fetch and re-serve
+# any https URL — an open proxy on your bandwidth, and a way to make the server issue
+# arbitrary outbound requests. It was there once; this stops it coming back quietly.
+# Comment lines are stripped first: the config explains why the wildcard was removed and
+# quotes it while doing so, which would otherwise match.
+if grep -vE "^\s*(//|\*|/\*)" next.config.ts | grep -qE "hostname:\s*['\"]\*\*['\"]"; then
+  bad "no wildcard image host" \
+      "remotePatterns allows hostname '**' — the optimiser will proxy any https URL"
+else
+  ok "no wildcard image host"
+fi
+
 printf '\n\033[1mResult\033[0m\n  %d passed, %d failed\n\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
