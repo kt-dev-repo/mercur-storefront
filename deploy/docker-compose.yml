@@ -37,12 +37,19 @@ services:
       - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-web.rule=Host(`${DOMAIN:?set DOMAIN to the storefront hostname, e.g. shop.example.com}`)"
       - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-web.entrypoints=web"
       - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-web.service=${TRAEFIK_ROUTER:-storefront}"
-      # Uncomment once a certificate resolver is configured, exactly as the
-      # backend stack does.
-      # - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.rule=Host(`${DOMAIN}`)"
-      # - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.entrypoints=websecure"
-      # - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
-      # - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.service=${TRAEFIK_ROUTER:-storefront}"
+      # HTTPS. Active, matching the backend stack. These were commented out, so this
+      # service had a "web" router only — Traefik then has nothing bound to the
+      # "websecure" entrypoint for this host, and every https:// request fails at the
+      # router rather than reaching the container. That is a Bad Gateway which looks
+      # like the app is down when the app is perfectly healthy.
+      #
+      # "tls=true" is required alongside the resolver. The backend stack has it and
+      # this block did not, so even uncommenting it as written would not have served TLS.
+      - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.entrypoints=websecure"
+      - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.tls=true"
+      - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.routers.${TRAEFIK_ROUTER:-storefront}-websecure.service=${TRAEFIK_ROUTER:-storefront}"
 
 networks:
   dokploy-network:
