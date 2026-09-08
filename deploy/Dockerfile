@@ -57,7 +57,7 @@ RUN npm run build
 # --- runtime ---------------------------------------------------------------
 FROM node:22-alpine AS runtime
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=8000
 
 # Runs unprivileged. node:alpine ships a `node` user already.
 COPY --from=build --chown=node:node /app/public ./public
@@ -65,5 +65,5 @@ COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 
 USER node
-EXPOSE 3000
+EXPOSE 8000
 CMD ["node", "server.js"]
