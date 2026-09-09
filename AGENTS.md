@@ -39,18 +39,28 @@ self-contained.
 
 ```bash
 npm install --force
-npm run check-types      # tsc --noEmit; the Next build does NOT fail on type errors
+npm run check-types      # tsc --noEmit — must be clean
 npm run lint
 npm run build            # output: "standalone" — this is what the Dockerfile ships
+./deploy/verify-compose.sh   # static checks on the deploy stack; no container needed
 ```
 
-`next.config.ts` sets `typescript.ignoreBuildErrors: true` (inherited from upstream), so
-`npm run build` passing does **not** mean the types are sound.
+CI runs all four on every push (`.github/workflows/ci.yml`).
 
-`npm run check-types` currently reports **82 errors, all in upstream's `src/`**. Treat that
-number as a baseline that must not grow — new code should typecheck cleanly. Likewise
-`next build` emits ~210 ESLint warnings from inherited code; `eslint.config.mjs`
+**`check-types` must report zero.** It reported 82 for a while, because
+`next.config.ts` set `typescript.ignoreBuildErrors: true` and the build never complained.
+Both are fixed: the errors are gone and `ignoreBuildErrors` is `false`, so `npm run build`
+now fails on a type error too.
+
+`next build` still emits ~210 ESLint warnings from inherited code; `eslint.config.mjs`
 downgrades those rules rather than rewriting upstream source. Do not add new violations.
+
+**`sdk` gives no path typing.** `src/lib/client.ts` cannot use the generated route map —
+it resolves half its routes through `@mercurjs/core`, a server framework deliberately not
+a dependency here — so the client is declared navigable and every call returns `unknown`.
+Type the RESPONSE at the call site with `apiResponse<T>()` in `lib/data`, using
+`HttpTypes` (@medusajs/types) or `@mercurjs/types/http`. A mistyped path is not caught by
+the compiler; a mistyped response is.
 
 Against a running backend, confirm end to end: the seeded catalogue renders, a product
 page loads, a two-seller cart reaches checkout, and publishing a product in the admin

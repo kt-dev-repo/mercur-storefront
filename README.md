@@ -86,27 +86,39 @@ and `TRAEFIK_ROUTER` from the backend stack.
 
 ```bash
 npm install --force
-npm run build        # must pass — this is what the Dockerfile ships
-npm run check-types  # currently reports 82 inherited errors; see below
+npm run build              # must pass — this is what the Dockerfile ships
+npm run check-types        # must be clean
 npm run lint
+./deploy/verify-compose.sh # static checks on the deploy stack; no container needed
 ```
+
+CI runs all of these on every push — see `.github/workflows/ci.yml`.
 
 ## Known issues inherited from upstream
 
-Left as-is on purpose so the app still matches its source and can be re-diffed on
-upgrade. All four should be addressed before real traffic:
+One remains:
 
-1. **`images.remotePatterns` ends with `hostname: '**'`** — the Next.js image optimizer
-   will fetch and re-serve *any* remote URL, which is an open image proxy. Restrict it to
-   your backend origin and CDN.
-2. **`typescript: { ignoreBuildErrors: true }`** — type errors do not fail the build.
-3. **`npm run check-types` reports 82 errors**, all from upstream's `src/`. That is the
-   direct consequence of (2). Treat 82 as a baseline: it must not grow. New code should
-   typecheck cleanly.
-4. **`next build` runs ESLint, and upstream's source does not pass `next/typescript`.**
-   `eslint.config.mjs` downgrades the rules it trips to warnings — around 210 of them —
-   rather than rewriting upstream code, which would make every future re-diff painful.
-   Do not add new violations.
+- **`next build` runs ESLint, and upstream's source does not pass `next/typescript`.**
+  `eslint.config.mjs` downgrades the rules it trips to warnings — around 210 of them —
+  rather than rewriting upstream code, which would make every future re-diff painful.
+  Do not add new violations.
+
+### Resolved
+
+- **The open image proxy.** `images.remotePatterns` ended with `hostname: '**'`, so the
+  optimiser would fetch and re-serve any https URL. Now an explicit allowlist, with the
+  deployment's own hosts derived from `MEDUSA_BACKEND_URL`, `NEXT_PUBLIC_BASE_URL` and
+  `NEXT_PUBLIC_IMAGE_HOST`. `deploy/verify-compose.sh` fails if the wildcard returns.
+- **`typescript: { ignoreBuildErrors: true }`, and the 82 type errors it hid.** Both gone:
+  the count is zero and the flag is `false`, so a type error fails the build.
+
+  Nearly all 82 were one cause. `src/lib/client.ts` declared a placeholder route map, so
+  `sdk.store` itself was `{}` and even `sdk.store.regions` failed — the paths were broken
+  before any response could be typed. The client is now declared navigable and responses
+  are typed at the call site via `apiResponse<T>()` in `lib/data`. Path typing is the
+  deliberate trade: restoring it needs the generated route map, which resolves through
+  `@mercurjs/core` — a server framework this repository does not depend on, and should
+  not, since the whole point of the split is to stay off the backend's tree.
 
 ### Fixed during extraction
 
